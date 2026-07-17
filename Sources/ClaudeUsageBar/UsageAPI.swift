@@ -24,7 +24,7 @@ struct UsageLimit: Identifiable {
 enum UsageError: LocalizedError {
     case keychainReadFailed
     case credentialFormat
-    case httpStatus(Int)
+    case httpStatus(Int, String?)
 
     var errorDescription: String? {
         switch self {
@@ -32,11 +32,14 @@ enum UsageError: LocalizedError {
             return "Keychain からトークンを取得できませんでした"
         case .credentialFormat:
             return "認証情報の形式が想定と異なります"
-        case .httpStatus(let code):
-            if code == 401 {
-                return "トークン期限切れの可能性 (Claude Code を起動すると更新されます)"
+        case .httpStatus(let code, let detail):
+            var message = code == 401
+                ? "トークン期限切れの可能性 (Claude Code を起動すると更新されます)"
+                : "API エラー (HTTP \(code))"
+            if let detail, !detail.isEmpty {
+                message += "\n\(detail)"
             }
-            return "API エラー (HTTP \(code))"
+            return message
         }
     }
 }
@@ -52,9 +55,26 @@ enum UsageAPI {
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-            throw UsageError.httpStatus(http.statusCode)
+            throw UsageError.httpStatus(http.statusCode, errorDetail(from: data))
         }
         return try parse(data)
+    }
+
+    // エラーレスポンスのボディから表示用の詳細を取り出す。
+    // 標準形: {"error": {"type": "rate_limit_error", "message": "..."}}
+    private static func errorDetail(from data: Data) -> String? {
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let error = json["error"] as? [String: Any] {
+                let parts = [error["type"] as? String, error["message"] as? String]
+                    .compactMap { $0 }
+                if !parts.isEmpty { return parts.joined(separator: ": ") }
+            }
+            if let message = json["message"] as? String { return message }
+        }
+        guard let body = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !body.isEmpty
+        else { return nil }
+        return String(body.prefix(200))
     }
 
     // Claude Code が Keychain に保存している OAuth 認証情報を読む。
