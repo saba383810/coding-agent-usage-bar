@@ -1,7 +1,11 @@
 # Claude Usage Bar
 
 Mac のメニューバーに Claude Code の使用量 (セッション 5h / 週制限) を
-円ゲージ + % で常駐表示するアプリ。
+円ゲージ + % で常駐表示するアプリです
+
+
+<img width="333" height="310" alt="スクリーンショット 2026-07-17 19 46 44" src="https://github.com/user-attachments/assets/338ce6bd-6f69-47d9-896f-c6fa5dc22d18" />
+
 
 ## 表示内容
 
