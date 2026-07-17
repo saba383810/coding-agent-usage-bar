@@ -27,8 +27,13 @@ final class UsageModel: ObservableObject {
     }
 
     private static let metricKey = "menuBarMetric"
-    private static let refreshInterval: TimeInterval = 60
+    private static let baseInterval: TimeInterval = 180
+    private static let maxInterval: TimeInterval = 1800
+    private var currentInterval: TimeInterval = UsageModel.baseInterval
     private var timer: Timer?
+    private var lastAttempt: Date?
+    private var started = false
+    private var isFetching = false
 
     init() {
         let saved = UserDefaults.standard.string(forKey: Self.metricKey)
@@ -36,23 +41,49 @@ final class UsageModel: ObservableObject {
     }
 
     func start() {
-        guard timer == nil else { return }
+        guard !started else { return }
+        started = true
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: Self.refreshInterval, repeats: true) { _ in
-            Task { @MainActor in self.refresh() }
-        }
+    }
+
+    // ポップオーバーを開いた時用。直近に試行済みなら API を叩かない
+    func refreshIfStale() {
+        if let lastAttempt, Date().timeIntervalSince(lastAttempt) < 60 { return }
+        refresh()
     }
 
     func refresh() {
+        guard !isFetching else { return }
+        isFetching = true
+        lastAttempt = Date()
         Task {
+            defer {
+                isFetching = false
+                scheduleNext()
+            }
             do {
                 let fetched = try await UsageAPI.fetch()
                 limits = fetched
                 lastUpdated = Date()
                 errorMessage = nil
+                currentInterval = Self.baseInterval
             } catch {
-                errorMessage = error.localizedDescription
+                // 429 は叩き続けると回復しないため、間隔を倍々で広げる
+                if case UsageError.httpStatus(429, _) = error {
+                    currentInterval = min(currentInterval * 2, Self.maxInterval)
+                    errorMessage = error.localizedDescription
+                        + "\n次の再試行まで \(Int(currentInterval)) 秒空けます"
+                } else {
+                    errorMessage = error.localizedDescription
+                }
             }
+        }
+    }
+
+    private func scheduleNext() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: currentInterval, repeats: false) { _ in
+            Task { @MainActor in self.refresh() }
         }
     }
 
