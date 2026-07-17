@@ -57,4 +57,4 @@ build.sh                          ビルド + .app バンドル組み立て
 
 ## License
 
-MIT
+[MIT License](LICENSE)
