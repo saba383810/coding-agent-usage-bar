@@ -1,14 +1,14 @@
 #!/bin/bash
-# ClaudeUsageBar を .app バンドルとしてビルドする
+# CodingAgentUsageBar を .app バンドルとしてビルドする
 set -euo pipefail
 cd "$(dirname "$0")"
 
 swift build -c release
 
-APP="build/ClaudeUsageBar.app"
+APP="build/CodingAgentUsageBar.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp .build/release/ClaudeUsageBar "$APP/Contents/MacOS/"
+cp .build/release/CodingAgentUsageBar "$APP/Contents/MacOS/"
 cp Info.plist "$APP/Contents/"
 codesign --force --sign - "$APP"
 
