@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "ClaudeUsageBar",
+    name: "CodingAgentUsageBar",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "ClaudeUsageBar",
-            path: "Sources/ClaudeUsageBar"
+            name: "CodingAgentUsageBar",
+            path: "Sources/CodingAgentUsageBar"
         )
     ]
 )

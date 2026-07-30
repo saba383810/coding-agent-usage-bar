@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>ClaudeUsageBar</string>
+	<string>CodingAgentUsageBar</string>
 	<key>CFBundleDisplayName</key>
-	<string>Claude Usage Bar</string>
+	<string>Coding Agent Usage Bar</string>
 	<key>CFBundleIdentifier</key>
-	<string>io.saba383810.ClaudeUsageBar</string>
+	<string>io.saba383810.CodingAgentUsageBar</string>
 	<key>CFBundleExecutable</key>
-	<string>ClaudeUsageBar</string>
+	<string>CodingAgentUsageBar</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
