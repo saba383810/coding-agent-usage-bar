@@ -79,19 +79,50 @@ ChatGPT backend は `User-Agent` が無いリクエストを 403 で弾くため
 
 `credits.balance` が返るクレジット残高制のプランでは、残高を別行で出す。
 
-## ビルドと起動
+## インストール
+
+### Homebrew (ビルド不要)
+
+```sh
+brew install --cask --no-quarantine saba383810/tap/coding-agent-usage-bar
+```
+
+未署名のため `--no-quarantine` が必要。付け忘れた場合は
+`xattr -dr com.apple.quarantine /Applications/CodingAgentUsageBar.app` で解除できる。
+
+### Releases から直接 (ビルド不要)
+
+[Releases](../../releases/latest) の `CodingAgentUsageBar.zip` を展開して
+`/Applications` に入れる。初回だけ Finder で右クリック → 開く が必要。
+
+### ソースからビルド
 
 Xcode 不要。Command Line Tools の Swift でビルドできる。
 
 ```sh
-./build.sh
-open build/CodingAgentUsageBar.app
+./install.sh
 ```
+
+ビルドして `/Applications` に配置し、起動中なら差し替えてから立ち上げるところまで
+やる。更新したい時も同じコマンドを再実行するだけでよい。
+
+`.app` を作るだけなら `./build.sh` (成果物は `build/CodingAgentUsageBar.app`)。
+
+### アンインストール
+
+```sh
+./uninstall.sh           # 設定は残す
+./uninstall.sh --purge   # 設定も消す
+```
+
+Homebrew で入れた場合は `brew uninstall --cask coding-agent-usage-bar`
+(`--zap` を付けると設定も消える)。
 
 ## ログイン時に自動起動
 
-1. `build/CodingAgentUsageBar.app` を `/Applications` にコピー
-2. システム設定 → 一般 → ログイン項目 → 「+」で追加
+メニューバーのアイコン → 歯車 → 「ログイン時に起動」を ON にする。
+`SMAppService` でアプリ自身を登録するので、システム設定を開く必要はない。
+macOS が承認を求めた場合だけ、システム設定 → 一般 → ログイン項目 で許可する。
 
 ## 構成
 
@@ -106,10 +137,26 @@ Sources/CodingAgentUsageBar/
   UsageLimit.swift                共通モデル (UsageLimit / UsageError / パース補助)
   ClaudeUsageAPI.swift            Keychain 読み取り + Anthropic の usage API
   CodexUsageAPI.swift             ~/.codex/auth.json 読み取り + ChatGPT の usage API
+  LoginItem.swift                 SMAppService でのログイン項目登録
   GaugeIcon.swift                 円ゲージ描画 (NSImage) と色
 Info.plist                        LSUIElement=true (Dock 非表示)
 build.sh                          ビルド + .app バンドル組み立て
+install.sh / uninstall.sh         /Applications への導入・削除
+Casks/                            Homebrew Cask の定義
+.github/workflows/release.yml     タグを打つと zip を Releases に添付する
 ```
+
+## リリース
+
+```sh
+git tag v1.1.0 && git push origin v1.1.0
+```
+
+Actions がビルドして `CodingAgentUsageBar.zip` を Releases に添付する。
+Cask は `version :latest` なので、リリースごとに書き換える必要はない。
+
+Homebrew で配る場合は `saba383810/homebrew-tap` に `Casks/coding-agent-usage-bar.rb`
+を置く (このリポジトリの `Casks/` がそのまま使える)。
 
 ## License
 

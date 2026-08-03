@@ -10,6 +10,9 @@ final class UsageModel: ObservableObject {
     @Published var codexError: String?
     @Published var codexAvailable = false
     @Published var lastUpdated: Date?
+    // ログイン項目の状態はシステム側が持つので、UserDefaults ではなくここに反映する
+    @Published var launchAtLogin = false
+    @Published var loginItemMessage: String?
 
     let settings: UsageSettings
 
@@ -25,10 +28,24 @@ final class UsageModel: ObservableObject {
     init(settings: UsageSettings) {
         self.settings = settings
         codexAvailable = CodexUsageAPI.isConfigured
+        launchAtLogin = LoginItem.isEnabled
         // 設定は別 ObservableObject なので、変更をこちらの再描画にも伝える
         settings.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &cancellables)
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            try LoginItem.setEnabled(enabled)
+            loginItemMessage = LoginItem.requiresApproval
+                ? "システム設定 → 一般 → ログイン項目 で許可してください"
+                : nil
+        } catch {
+            loginItemMessage = "ログイン項目を変更できませんでした (\(error.localizedDescription))"
+        }
+        // 成否にかかわらずシステム側の状態に合わせる
+        launchAtLogin = LoginItem.isEnabled
     }
 
     // Codex を表示対象として扱えるか (設定 ON かつ auth.json がある)

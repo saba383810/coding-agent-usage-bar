@@ -1,0 +1,75 @@
+name: Release
+
+# タグを打つとビルドして .app の zip を Releases に添付する。
+# 手元に Swift toolchain が無くても、Releases から落とすだけで使えるようにするのが目的。
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "リリースするタグ (例: v1.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: タグを決める
+        id: tag
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: ビルド
+        run: ./build.sh
+
+      - name: zip にまとめる
+        id: package
+        run: |
+          # ditto を使うと .app の属性を保ったまま固められる
+          ditto -c -k --keepParent build/CodingAgentUsageBar.app CodingAgentUsageBar.zip
+          SHA=$(shasum -a 256 CodingAgentUsageBar.zip | awk '{print $1}')
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Release を作る
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          SHA256: ${{ steps.package.outputs.sha256 }}
+        run: |
+          NOTES=$(cat <<EOF
+          ## インストール
+
+          \`\`\`sh
+          brew install --cask --no-quarantine saba383810/tap/coding-agent-usage-bar
+          \`\`\`
+
+          または \`CodingAgentUsageBar.zip\` を展開して \`/Applications\` に入れてください。
+          未署名のため、そのまま開くと Gatekeeper に止められます。初回だけ次のどちらかを行ってください。
+
+          - Finder で右クリック → 開く
+          - \`xattr -dr com.apple.quarantine /Applications/CodingAgentUsageBar.app\`
+
+          ログイン時の自動起動は、メニューバーのアイコン → 歯車 → 「ログイン時に起動」で設定できます。
+
+          ## SHA256
+
+          \`\`\`
+          $SHA256  CodingAgentUsageBar.zip
+          \`\`\`
+          EOF
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" CodingAgentUsageBar.zip --clobber
+          else
+            gh release create "$TAG" CodingAgentUsageBar.zip \
+              --title "$TAG" \
+              --notes "$NOTES"
+          fi

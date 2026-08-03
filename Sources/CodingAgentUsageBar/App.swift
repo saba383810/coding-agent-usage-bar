@@ -23,6 +23,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Dock アイコンを出さない (Info.plist の LSUIElement と二重の保険)
         NSApp.setActivationPolicy(.accessory)
+        handleLoginItemArguments()
+    }
+
+    // ログイン項目の登録解除はアプリ自身しかできないため、
+    // uninstall.sh から引数付きで起動して解除だけ行って終了する
+    private func handleLoginItemArguments() {
+        let arguments = CommandLine.arguments
+        guard arguments.contains("--register-login-item")
+            || arguments.contains("--unregister-login-item")
+        else { return }
+        let enable = arguments.contains("--register-login-item")
+        try? LoginItem.setEnabled(enable)
+        print("login item: \(LoginItem.statusDescription)")
+        NSApp.terminate(nil)
     }
 }
 

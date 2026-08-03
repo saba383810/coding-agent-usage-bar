@@ -46,6 +46,19 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("起動") {
+                Toggle("ログイン時に起動", isOn: Binding(
+                    get: { model.launchAtLogin },
+                    set: { model.setLaunchAtLogin($0) }
+                ))
+                if let message = model.loginItemMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
             Section("メニューバーの見た目") {
                 Toggle("アイコンで表示する", isOn: $settings.useMenuBarIcons)
                 HStack(spacing: 12) {
