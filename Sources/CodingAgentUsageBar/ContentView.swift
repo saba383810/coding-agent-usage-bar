@@ -224,6 +224,11 @@ private struct LimitRow: View {
 
     private func resetText(_ date: Date) -> String {
         let remaining = date.timeIntervalSinceNow
+        // 月間クレジットのように 1 週間より先のリセットは、曜日だけだと分からないので日付と残り日数で出す
+        if remaining > 7 * 86400 {
+            let absolute = date.formatted(.dateTime.month().day().weekday(.abbreviated))
+            return "リセット: \(absolute) (あと\(Int(remaining) / 86400)日)"
+        }
         let absolute: String
         if Calendar.current.isDateInToday(date) {
             absolute = date.formatted(date: .omitted, time: .shortened)

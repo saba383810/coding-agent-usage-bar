@@ -132,9 +132,16 @@ enum ClaudeUsageAPI {
             group: "credits",
             percent: percent,
             severity: spend["severity"] as? String,
+            resetsAt: startOfNextMonth(),
             details: [detail],
             customTitle: "Credits (monthly)"
         )
+    }
+
+    // API はリセット日時を返さないので、Claude Code の /usage と同じく
+    // 翌月 1 日 0:00 (ローカル時刻) とみなす
+    private static func startOfNextMonth() -> Date? {
+        Calendar(identifier: .gregorian).dateInterval(of: .month, for: Date())?.end
     }
 
     private struct Money {
