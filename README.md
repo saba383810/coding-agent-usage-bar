@@ -14,7 +14,7 @@ Mac のメニューバーに Claude Code と Codex の使用量 (セッション
   どちらのゲージかは設定でアイコン (Claude: `asterisk` / Codex: `hexagon`) か
   文字 (`Cl` / `Cx`) を選べる
 - **クリックでポップオーバー**:
-  - Claude: Session (5h) / Week (all models) / Week (モデル別)
+  - Claude: Session (5h) / Week (all models) / Week (モデル別) / Credits (monthly)
   - Codex: Credits (クレジット消費・請求段階・次の段階までのバー)。
     レート制限があるプランでは 5h / 週も
   - 各リミットのリセット時刻と残り時間
@@ -39,6 +39,10 @@ Codex を使っていない環境 (`~/.codex/auth.json` が無い) では Codex 
 Claude Code が macOS Keychain (`Claude Code-credentials`) に保存している
 OAuth トークンを使い、`https://api.anthropic.com/api/oauth/usage` を叩く。
 `/usage` コマンドと同じデータ。
+
+クレジット制のプランでは `limits` が空で `five_hour` / `seven_day` も null になり、
+月間のクレジット消費 (`spend`) だけが返る。この場合は Credits (monthly) だけを出し、
+メニューバーの指標が Session / Week でもクレジットの消費率で代用する。
 
 ### Codex
 

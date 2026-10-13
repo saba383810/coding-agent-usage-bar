@@ -3,6 +3,7 @@ import Foundation
 enum ClaudeMetric: String, CaseIterable, Identifiable {
     case session
     case weeklyMax
+    case credits
     case max
 
     var id: String { rawValue }
@@ -11,6 +12,7 @@ enum ClaudeMetric: String, CaseIterable, Identifiable {
         switch self {
         case .session: return "Session (5h)"
         case .weeklyMax: return "Week (最大)"
+        case .credits: return "Credits (月間の消費)"
         case .max: return "全体の最大"
         }
     }
