@@ -7,7 +7,9 @@ final class UsageModel: ObservableObject {
     // 5h / 週の枠と月間のクレジット消費。表示する行は設定と合わせて claudeLimits で組み立てる
     @Published private var claudeRateLimits: [UsageLimit] = []
     @Published private(set) var claudeSpend: ClaudeSpend?
-    @Published var codexLimits: [UsageLimit] = []
+    // API から取れた行と支出上限。目安の行は codexLimits で足す
+    @Published private var codexRawLimits: [UsageLimit] = []
+    @Published private var codexSpend: CodexSpend?
     @Published var claudeError: String?
     @Published var codexError: String?
     @Published var codexAvailable = false
@@ -28,6 +30,7 @@ final class UsageModel: ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
     // 今日・今週に使った分を出すための、日ごとの累計の記録
     private var claudeHistory = UsageHistory(key: "usageHistory.claude")
+    private var codexHistory = UsageHistory(key: "usageHistory.codex")
 
     init(settings: UsageSettings) {
         self.settings = settings
@@ -101,7 +104,10 @@ final class UsageModel: ObservableObject {
 
             if codexActive {
                 do {
-                    codexLimits = try await CodexUsageAPI.fetch()
+                    let usage = try await CodexUsageAPI.fetch()
+                    codexRawLimits = usage.limits
+                    codexSpend = usage.spend
+                    if let spend = usage.spend { codexHistory.record(spend.used) }
                     codexError = nil
                     succeeded = true
                 } catch {
@@ -109,7 +115,8 @@ final class UsageModel: ObservableObject {
                     codexRateLimited = isRateLimit(error)
                 }
             } else {
-                codexLimits = []
+                codexRawLimits = []
+                codexSpend = nil
                 codexError = nil
             }
 
@@ -177,6 +184,23 @@ final class UsageModel: ObservableObject {
         )
     }
 
+    // 目安の行はクレジットの行の手前に差し込む
+    var codexLimits: [UsageLimit] {
+        guard settings.codexShowsPace, let codexSpend, let period = codexSpend.period() else {
+            return codexRawLimits
+        }
+        let pace = SpendPace.limits(
+            provider: .codex,
+            used: codexSpend.used,
+            limit: codexSpend.limit,
+            period: period,
+            options: paceOptions,
+            history: codexHistory,
+            format: CodexUsageAPI.formatted
+        )
+        return codexRawLimits.filter { $0.group != "credits" } + pace + codexRawLimits.filter { $0.group == "credits" }
+    }
+
     private var paceOptions: PaceOptions {
         PaceOptions(daily: settings.dailyPaceMode, weekly: settings.weeklyPaceMode)
     }
@@ -201,18 +225,23 @@ final class UsageModel: ObservableObject {
 
     // クレジット行 (percent を持つものを優先)
     var codexCreditsLimit: UsageLimit? {
-        codexLimits.first { $0.group == "credits" && $0.percent != nil }
-            ?? codexLimits.first { $0.group == "credits" }
+        codexRawLimits.first { $0.group == "credits" && $0.percent != nil }
+            ?? codexRawLimits.first { $0.group == "credits" }
     }
 
     var codexMenuBarPercent: Double? {
+        let limits = codexLimits
         switch settings.codexMetric {
+        case .dailyPace:
+            return (limits.first { $0.kind == "pace_daily" } ?? codexCreditsLimit)?.percent
+        case .weeklyPace:
+            return (limits.first { $0.kind == "pace_weekly" } ?? codexCreditsLimit)?.percent
         case .credits:
             return codexCreditsLimit?.percent
         case .creditTier:
             return codexCreditsLimit?.creditTier?.percent
         case .max:
-            return highest(in: codexLimits)?.percent
+            return highest(in: limits)?.percent
         }
     }
 

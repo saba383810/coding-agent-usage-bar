@@ -52,6 +52,8 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(!model.codexActive || !settings.codexInMenuBar)
+                Toggle("日・週の目安を表示", isOn: $settings.codexShowsPace)
+                    .disabled(!model.codexActive)
                 Toggle("クレジットの請求段階を表示", isOn: $settings.showCreditCharge)
                     .disabled(!model.codexActive)
                 Text("""
@@ -82,7 +84,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .disabled(!settings.claudeShowsPace)
+            .disabled(!settings.claudeShowsPace && !settings.codexShowsPace)
 
             Section("起動") {
                 Toggle("ログイン時に起動", isOn: Binding(

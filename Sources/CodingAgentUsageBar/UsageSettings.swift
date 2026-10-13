@@ -28,6 +28,8 @@ enum ClaudeMetric: String, CaseIterable, Identifiable {
 }
 
 enum CodexMetric: String, CaseIterable, Identifiable {
+    case dailyPace
+    case weeklyPace
     case credits
     case creditTier
     case max
@@ -36,6 +38,8 @@ enum CodexMetric: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
+        case .dailyPace: return "Today (目安)"
+        case .weeklyPace: return "Week (目安)"
         case .credits: return "Credits (上限に対する消費)"
         case .creditTier: return "次の請求段階まで"
         case .max: return "全体の最大"
@@ -54,6 +58,7 @@ final class UsageSettings: ObservableObject {
     @Published var showCreditCharge: Bool { didSet { store(showCreditCharge, Key.showCreditCharge) } }
     @Published var useMenuBarIcons: Bool { didSet { store(useMenuBarIcons, Key.useMenuBarIcons) } }
     @Published var claudeShowsPace: Bool { didSet { store(claudeShowsPace, Key.claudeShowsPace) } }
+    @Published var codexShowsPace: Bool { didSet { store(codexShowsPace, Key.codexShowsPace) } }
     // 目安の「使用」を累計で数えるか、今日 (今週) に使った分で数えるか
     @Published var dailyPaceMode: PaceUsageMode { didSet { store(dailyPaceMode.rawValue, Key.dailyPaceMode) } }
     @Published var weeklyPaceMode: PaceUsageMode { didSet { store(weeklyPaceMode.rawValue, Key.weeklyPaceMode) } }
@@ -78,6 +83,7 @@ final class UsageSettings: ObservableObject {
         static let showCreditCharge = "showCreditCharge"
         static let useMenuBarIcons = "useMenuBarIcons"
         static let claudeShowsPace = "claudeShowsPace"
+        static let codexShowsPace = "codexShowsPace"
         static let dailyPaceMode = "dailyPaceMode"
         static let weeklyPaceMode = "weeklyPaceMode"
         static let claudeLimitOverride = "claudeLimitOverride"
@@ -99,6 +105,7 @@ final class UsageSettings: ObservableObject {
         showCreditCharge = Self.bool(defaults, Key.showCreditCharge, default: true)
         useMenuBarIcons = Self.bool(defaults, Key.useMenuBarIcons, default: false)
         claudeShowsPace = Self.bool(defaults, Key.claudeShowsPace, default: true)
+        codexShowsPace = Self.bool(defaults, Key.codexShowsPace, default: true)
         dailyPaceMode = PaceUsageMode(rawValue: defaults.string(forKey: Key.dailyPaceMode) ?? "") ?? .cumulative
         weeklyPaceMode = PaceUsageMode(rawValue: defaults.string(forKey: Key.weeklyPaceMode) ?? "") ?? .cumulative
         claudeLimitOverride = defaults.object(forKey: Key.claudeLimitOverride) as? Double
