@@ -17,6 +17,27 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(!settings.claudeEnabled || !settings.claudeInMenuBar)
+                Toggle("日・週の目安を表示", isOn: $settings.claudeShowsPace)
+                    .disabled(!settings.claudeEnabled)
+                LabeledContent("月の上限 (USD・上書き)") {
+                    TextField(
+                        "月の上限 (USD・上書き)",
+                        value: $settings.claudeLimitOverride,
+                        format: .number,
+                        prompt: Text(model.claudeSpend?.limit?.formatted ?? "API の値")
+                    )
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 110)
+                }
+                .disabled(!settings.claudeEnabled)
+                Text("""
+                    クレジット制のプランでは、月の上限を日割りした目安を Today / Week として出します。
+                    前日までに使いすぎた分は持ち越すので、朝の時点で 100% になることもあります。
+                    上限を空欄にすると API の値を使います。
+                    """)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Codex") {

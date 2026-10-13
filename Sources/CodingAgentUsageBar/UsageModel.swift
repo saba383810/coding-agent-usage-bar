@@ -4,7 +4,9 @@ import SwiftUI
 
 @MainActor
 final class UsageModel: ObservableObject {
-    @Published var claudeLimits: [UsageLimit] = []
+    // 5h / 週の枠と月間のクレジット消費。表示する行は設定と合わせて claudeLimits で組み立てる
+    @Published private var claudeRateLimits: [UsageLimit] = []
+    @Published private(set) var claudeSpend: ClaudeSpend?
     @Published var codexLimits: [UsageLimit] = []
     @Published var claudeError: String?
     @Published var codexError: String?
@@ -79,7 +81,9 @@ final class UsageModel: ObservableObject {
 
             if settings.claudeEnabled {
                 do {
-                    claudeLimits = try await ClaudeUsageAPI.fetch()
+                    let usage = try await ClaudeUsageAPI.fetch()
+                    claudeRateLimits = usage.rateLimits
+                    claudeSpend = usage.spend
                     claudeError = nil
                     succeeded = true
                 } catch {
@@ -87,7 +91,8 @@ final class UsageModel: ObservableObject {
                     claudeRateLimited = isRateLimit(error)
                 }
             } else {
-                claudeLimits = []
+                claudeRateLimits = []
+                claudeSpend = nil
                 claudeError = nil
             }
 
@@ -157,19 +162,37 @@ final class UsageModel: ObservableObject {
         }
     }
 
+    var claudeLimits: [UsageLimit] {
+        guard let claudeSpend else { return claudeRateLimits }
+        // 0 以下は上書きしていない扱い
+        let limitOverride = settings.claudeLimitOverride.flatMap { $0 > 0 ? $0 : nil }
+        return claudeRateLimits + ClaudeBudget.limits(
+            spend: claudeSpend,
+            limitOverride: limitOverride,
+            showsPace: settings.claudeShowsPace
+        )
+    }
+
     var claudeMenuBarLimit: UsageLimit? {
-        // クレジット制のプランには 5h / 週の枠が無いので、その場合はクレジットで代用する
-        let credits = claudeLimits.first { $0.group == "credits" }
+        let limits = claudeLimits
+        let dailyPace = limits.first { $0.kind == "pace_daily" }
+        let weeklyPace = limits.first { $0.kind == "pace_weekly" }
+        let credits = limits.first { $0.group == "credits" }
+        // クレジット制のプランには 5h / 週の枠が無いので、その場合は目安 → クレジットの順で代用する
         switch settings.claudeMetric {
         case .session:
-            return claudeLimits.first { $0.kind == "session" } ?? credits
+            return limits.first { $0.kind == "session" } ?? dailyPace ?? credits
         case .weeklyMax:
-            return highest(in: claudeLimits.filter { $0.group == "weekly" || $0.kind.hasPrefix("weekly") })
-                ?? credits
+            return highest(in: limits.filter { $0.group == "weekly" || $0.kind.hasPrefix("weekly") })
+                ?? weeklyPace ?? credits
+        case .dailyPace:
+            return dailyPace ?? credits
+        case .weeklyPace:
+            return weeklyPace ?? credits
         case .credits:
             return credits
         case .max:
-            return highest(in: claudeLimits)
+            return highest(in: limits)
         }
     }
 

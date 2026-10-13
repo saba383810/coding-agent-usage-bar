@@ -1,5 +1,12 @@
 import Foundation
 
+// 5h / 週のレート制限と、月間のクレジット消費。
+// 消費から作る行 (目安・Credits) は設定に依存するので、UsageModel 側で ClaudeBudget に組み立てさせる
+struct ClaudeUsage {
+    let rateLimits: [UsageLimit]
+    let spend: ClaudeSpend?
+}
+
 enum ClaudeUsageAPI {
     private static let keychainService = "Claude Code-credentials"
     private static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
@@ -9,7 +16,7 @@ enum ClaudeUsageAPI {
         (try? readAccessToken()) != nil
     }
 
-    static func fetch() async throws -> [UsageLimit] {
+    static func fetch() async throws -> ClaudeUsage {
         let token = try readAccessToken()
         var request = URLRequest(url: endpoint)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -51,17 +58,14 @@ enum ClaudeUsageAPI {
         return token
     }
 
-    private static func parse(_ data: Data) throws -> [UsageLimit] {
+    private static func parse(_ data: Data) throws -> ClaudeUsage {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw UsageError.credentialFormat
         }
-        var limits = rateLimits(from: json)
-        if let credits = creditsLimit(from: json) {
-            limits.append(credits)
-        }
+        let usage = ClaudeUsage(rateLimits: rateLimits(from: json), spend: spend(from: json))
         // 空のまま返すと「読み込み中…」から進まないので、形式変更として明示する
-        guard !limits.isEmpty else { throw UsageError.noUsageData }
-        return limits
+        guard !usage.rateLimits.isEmpty || usage.spend != nil else { throw UsageError.noUsageData }
+        return usage
     }
 
     // 5h / 週のレート制限。クレジット制のプランでは limits が空で five_hour なども null になる
@@ -108,58 +112,17 @@ enum ClaudeUsageAPI {
     // 月間のクレジット消費。
     // 例: "spend": {"used": {"amount_minor": 1250, "currency": "USD", "exponent": 2},
     //              "limit": {"amount_minor": 10000, ...}, "percent": 12, "enabled": true}
-    private static func creditsLimit(from json: [String: Any]) -> UsageLimit? {
+    private static func spend(from json: [String: Any]) -> ClaudeSpend? {
         guard let spend = json["spend"] as? [String: Any],
               spend["enabled"] as? Bool ?? false,
               let used = money(spend["used"])
         else { return nil }
-        let limit = money(spend["limit"])
-        // API の percent は整数丸めなので、生の値から計算できるならそちらを使う
-        let percent: Double? = {
-            if let limit, limit.amount > 0 { return used.amount / limit.amount * 100 }
-            return UsageParse.double(spend["percent"])
-        }()
-        var detail = "使用 \(used.formatted)"
-        if let limit {
-            let remaining = limit.amount - used.amount
-            let label = remaining < 0 ? "超過" : "残り"
-            let amount = Money(amount: abs(remaining), currency: limit.currency)
-            detail += " / \(limit.formatted) (\(label) \(amount.formatted))"
-        }
-        return UsageLimit(
-            provider: .claude,
-            kind: "credits",
-            group: "credits",
-            percent: percent,
+        return ClaudeSpend(
+            used: used,
+            limit: money(spend["limit"]),
             severity: spend["severity"] as? String,
-            resetsAt: startOfNextMonth(),
-            details: [detail],
-            customTitle: "Credits (monthly)"
+            percent: UsageParse.double(spend["percent"])
         )
-    }
-
-    // API はリセット日時を返さないので、Claude Code の /usage と同じく
-    // 翌月 1 日 0:00 (ローカル時刻) とみなす
-    private static func startOfNextMonth() -> Date? {
-        Calendar(identifier: .gregorian).dateInterval(of: .month, for: Date())?.end
-    }
-
-    private struct Money {
-        let amount: Double
-        let currency: String?
-
-        var formatted: String {
-            let formatter = NumberFormatter()
-            if let currency {
-                formatter.numberStyle = .currency
-                formatter.currencyCode = currency
-            } else {
-                formatter.numberStyle = .decimal
-                formatter.minimumFractionDigits = 2
-                formatter.maximumFractionDigits = 2
-            }
-            return formatter.string(from: amount as NSNumber) ?? String(amount)
-        }
     }
 
     // {"amount_minor": 1250, "currency": "USD", "exponent": 2} → 12.50 USD
