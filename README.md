@@ -1,8 +1,11 @@
+
+
 # Coding Agent Usage Bar
 
 Mac のメニューバーに Claude Code と Codex の使用量 (セッション 5h / 週制限 /
 クレジット消費) を円ゲージ + % で常駐表示するアプリです
 
+<img src="Resources/AppIcon.png" width="128" height="128" alt="Coding Agent Usage Bar のアイコン">
 
 <img width="333" height="310" alt="スクリーンショット 2026-07-17 19 46 44" src="https://github.com/user-attachments/assets/338ce6bd-6f69-47d9-896f-c6fa5dc22d18" />
 
@@ -150,6 +153,7 @@ Sources/CodingAgentUsageBar/
   LoginItem.swift                 SMAppService でのログイン項目登録
   GaugeIcon.swift                 円ゲージ描画 (NSImage) と色
 Info.plist                        LSUIElement=true (Dock 非表示)
+Resources/AppIcon.png             アプリアイコン (build.sh が .icns に変換する)
 build.sh                          ビルド + .app バンドル組み立て
 install.sh / uninstall.sh         /Applications への導入・削除
 Casks/                            Homebrew Cask の定義
