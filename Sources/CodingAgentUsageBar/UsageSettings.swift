@@ -3,6 +3,8 @@ import Foundation
 enum ClaudeMetric: String, CaseIterable, Identifiable {
     case session
     case weeklyMax
+    case dailyPace
+    case weeklyPace
     case credits
     case max
 
@@ -12,6 +14,8 @@ enum ClaudeMetric: String, CaseIterable, Identifiable {
         switch self {
         case .session: return "Session (5h)"
         case .weeklyMax: return "Week (最大)"
+        case .dailyPace: return "Today (目安)"
+        case .weeklyPace: return "Week (目安)"
         case .credits: return "Credits (月間の消費)"
         case .max: return "全体の最大"
         }
@@ -44,6 +48,17 @@ final class UsageSettings: ObservableObject {
     @Published var codexMetric: CodexMetric { didSet { store(codexMetric.rawValue, Key.codexMetric) } }
     @Published var showCreditCharge: Bool { didSet { store(showCreditCharge, Key.showCreditCharge) } }
     @Published var useMenuBarIcons: Bool { didSet { store(useMenuBarIcons, Key.useMenuBarIcons) } }
+    @Published var claudeShowsPace: Bool { didSet { store(claudeShowsPace, Key.claudeShowsPace) } }
+    // Claude の月間上限を自分で決めた額に置き換える (nil なら API の上限)
+    @Published var claudeLimitOverride: Double? {
+        didSet {
+            if let claudeLimitOverride {
+                store(claudeLimitOverride, Key.claudeLimitOverride)
+            } else {
+                defaults.removeObject(forKey: Key.claudeLimitOverride)
+            }
+        }
+    }
 
     private enum Key {
         static let claudeEnabled = "claudeEnabled"
@@ -54,6 +69,8 @@ final class UsageSettings: ObservableObject {
         static let codexMetric = "codexMetric"
         static let showCreditCharge = "showCreditCharge"
         static let useMenuBarIcons = "useMenuBarIcons"
+        static let claudeShowsPace = "claudeShowsPace"
+        static let claudeLimitOverride = "claudeLimitOverride"
         // v1 の「メニューバー表示」設定。claudeMetric に引き継いで削除する
         static let legacyMenuBarMetric = "menuBarMetric"
     }
@@ -71,6 +88,8 @@ final class UsageSettings: ObservableObject {
         codexMetric = CodexMetric(rawValue: defaults.string(forKey: Key.codexMetric) ?? "") ?? .credits
         showCreditCharge = Self.bool(defaults, Key.showCreditCharge, default: true)
         useMenuBarIcons = Self.bool(defaults, Key.useMenuBarIcons, default: false)
+        claudeShowsPace = Self.bool(defaults, Key.claudeShowsPace, default: true)
+        claudeLimitOverride = defaults.object(forKey: Key.claudeLimitOverride) as? Double
     }
 
     private func store(_ value: Any, _ key: String) {
