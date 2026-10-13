@@ -1,5 +1,27 @@
 import Foundation
 
+struct CodexUsage {
+    let limits: [UsageLimit]
+    // 目安の計算用。spend control が無いプランでは nil
+    let spend: CodexSpend?
+}
+
+// ワークスペースの支出上限に対する消費 (単位はクレジット)
+struct CodexSpend {
+    let used: Double
+    let limit: Double
+    let resetsAt: Date?
+
+    // reset_at の 1 か月前から reset_at まで。リセット日時が無ければローカルの暦月とみなす
+    func period(now: Date = Date()) -> DateInterval? {
+        let calendar = Calendar(identifier: .gregorian)
+        guard let resetsAt, let start = calendar.date(byAdding: .month, value: -1, to: resetsAt) else {
+            return calendar.dateInterval(of: .month, for: now)
+        }
+        return DateInterval(start: start, end: resetsAt)
+    }
+}
+
 enum CodexUsageAPI {
     private static let endpoint = URL(string: "https://chatgpt.com/backend-api/codex/usage")!
     private static var authURL: URL {
@@ -11,7 +33,7 @@ enum CodexUsageAPI {
         (try? readAuth()) != nil
     }
 
-    static func fetch() async throws -> [UsageLimit] {
+    static func fetch() async throws -> CodexUsage {
         let auth = try readAuth()
         var request = URLRequest(url: endpoint)
         request.setValue("Bearer \(auth.accessToken)", forHTTPHeaderField: "Authorization")
@@ -59,11 +81,12 @@ enum CodexUsageAPI {
         return CodexAuth(accessToken: token, accountID: tokens["account_id"] as? String)
     }
 
-    static func parse(_ data: Data) throws -> [UsageLimit] {
+    static func parse(_ data: Data) throws -> CodexUsage {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw UsageError.codexAuthFormat
         }
         var limits: [UsageLimit] = []
+        var spendUsage: CodexSpend?
 
         // プラン共通のレート制限 (business など制限のないプランでは null)
         if let rateLimit = json["rate_limit"] as? [String: Any] {
@@ -95,6 +118,9 @@ enum CodexUsageAPI {
                 if let limit, limit > 0, let used { return used / limit * 100 }
                 return UsageParse.double(individual["used_percent"])
             }()
+            if let limit, let used {
+                spendUsage = CodexSpend(used: used, limit: limit, resetsAt: resetDate(individual))
+            }
             limits.append(UsageLimit(
                 provider: .codex,
                 kind: "credits",
@@ -128,7 +154,7 @@ enum CodexUsageAPI {
             }
         }
 
-        return limits
+        return CodexUsage(limits: limits, spend: spendUsage)
     }
 
     // rate_limit の primary_window / secondary_window を UsageLimit に変換する
@@ -249,7 +275,7 @@ enum CodexUsageAPI {
     }
 
     // 小さい値は小数を残し、大きい値は整数で丸める
-    private static func formatted(_ value: Double) -> String {
+    static func formatted(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumFractionDigits = abs(value) < 100 ? 2 : 0

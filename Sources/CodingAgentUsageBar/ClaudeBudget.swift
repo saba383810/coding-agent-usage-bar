@@ -36,7 +36,8 @@ enum ClaudeBudget {
     static func limits(
         spend: ClaudeSpend,
         limitOverride: Double?,
-        showsPace: Bool,
+        pace: PaceOptions?,
+        history: UsageHistory,
         now: Date = Date()
     ) -> [UsageLimit] {
         let calendar = Calendar(identifier: .gregorian)
@@ -44,8 +45,17 @@ enum ClaudeBudget {
         // 設定で上限を上書きしていれば、% と目安はその額で計算する
         let limit = limitOverride.map { spend.used.with(amount: $0) } ?? spend.limit
         var rows: [UsageLimit] = []
-        if showsPace, let limit, limit.amount > 0 {
-            rows += paceLimits(used: spend.used, limit: limit, month: month, calendar: calendar, now: now)
+        if let pace, let limit {
+            rows += SpendPace.limits(
+                provider: .claude,
+                used: spend.used.amount,
+                limit: limit.amount,
+                period: month,
+                options: pace,
+                history: history,
+                format: { limit.with(amount: $0).formatted },
+                now: now
+            )
         }
         rows.append(creditsLimit(spend: spend, limit: limit, isOverridden: limitOverride != nil, month: month))
         return rows
@@ -84,49 +94,5 @@ enum ClaudeBudget {
             details: details,
             customTitle: "Credits (monthly)"
         )
-    }
-
-    // 月の上限を日割りした目安。
-    // 使用量は月初からの累計しか取れないので、期間の開始時点までに使ってよかった額を超えた分を
-    // その期間の消費とみなす。前日 (前週) までに使いすぎていれば、期間の始めから 100% になりうる。
-    private static func paceLimits(
-        used: Money,
-        limit: Money,
-        month: DateInterval,
-        calendar: Calendar,
-        now: Date
-    ) -> [UsageLimit] {
-        let daysInMonth = calendar.range(of: .day, in: .month, for: now)?.count ?? 30
-        let daily = limit.amount / Double(daysInMonth)
-
-        func days(from start: Date, to end: Date) -> Double {
-            Double(calendar.dateComponents([.day], from: start, to: end).day ?? 0)
-        }
-
-        func row(kind: String, title: String, period: DateInterval) -> UsageLimit {
-            let base = daily * days(from: month.start, to: period.start)
-            let budget = daily * days(from: period.start, to: period.end)
-            let spent = max(used.amount - base, 0)
-            return UsageLimit(
-                provider: .claude,
-                kind: kind,
-                group: "pace",
-                percent: budget > 0 ? spent / budget * 100 : nil,
-                resetsAt: period.end,
-                details: ["使用 \(limit.with(amount: spent).formatted) / 目安 \(limit.with(amount: budget).formatted)"],
-                customTitle: title
-            )
-        }
-
-        var rows: [UsageLimit] = []
-        if let today = calendar.dateInterval(of: .day, for: now) {
-            rows.append(row(kind: "pace_daily", title: "Today (目安)", period: today))
-        }
-        // 週は月曜始まり。月をまたぐ週は月の境界で区切り、その日数分を目安にする
-        if let week = Calendar(identifier: .iso8601).dateInterval(of: .weekOfYear, for: now) {
-            let period = DateInterval(start: max(week.start, month.start), end: min(week.end, month.end))
-            rows.append(row(kind: "pace_weekly", title: "Week (目安)", period: period))
-        }
-        return rows
     }
 }
