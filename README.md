@@ -1,12 +1,11 @@
-<p align="center">
-  <img src="Resources/AppIcon.png" width="128" height="128" alt="Coding Agent Usage Bar のアイコン">
-</p>
+
 
 # Coding Agent Usage Bar
 
 Mac のメニューバーに Claude Code と Codex の使用量 (セッション 5h / 週制限 /
 クレジット消費) を円ゲージ + % で常駐表示するアプリです
 
+<img src="Resources/AppIcon.png" width="128" height="128" alt="Coding Agent Usage Bar のアイコン">
 
 <img width="333" height="310" alt="スクリーンショット 2026-07-17 19 46 44" src="https://github.com/user-attachments/assets/338ce6bd-6f69-47d9-896f-c6fa5dc22d18" />
 
