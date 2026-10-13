@@ -48,14 +48,14 @@ jobs:
           ## インストール
 
           \`\`\`sh
-          brew install --cask --no-quarantine saba383810/tap/coding-agent-usage-bar
+          brew install --cask saba383810/tap/coding-agent-usage-bar
           \`\`\`
 
           または \`CodingAgentUsageBar.zip\` を展開して \`/Applications\` に入れてください。
           未署名のため、そのまま開くと Gatekeeper に止められます。初回だけ次のどちらかを行ってください。
 
-          - Finder で右クリック → 開く
           - \`xattr -dr com.apple.quarantine /Applications/CodingAgentUsageBar.app\`
+          - 一度開こうとした後、システム設定 → プライバシーとセキュリティ の「このまま開く」
 
           ログイン時の自動起動は、メニューバーのアイコン → 歯車 → 「ログイン時に起動」で設定できます。
 
