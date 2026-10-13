@@ -54,6 +54,9 @@ final class UsageSettings: ObservableObject {
     @Published var showCreditCharge: Bool { didSet { store(showCreditCharge, Key.showCreditCharge) } }
     @Published var useMenuBarIcons: Bool { didSet { store(useMenuBarIcons, Key.useMenuBarIcons) } }
     @Published var claudeShowsPace: Bool { didSet { store(claudeShowsPace, Key.claudeShowsPace) } }
+    // 目安の「使用」を累計で数えるか、今日 (今週) に使った分で数えるか
+    @Published var dailyPaceMode: PaceUsageMode { didSet { store(dailyPaceMode.rawValue, Key.dailyPaceMode) } }
+    @Published var weeklyPaceMode: PaceUsageMode { didSet { store(weeklyPaceMode.rawValue, Key.weeklyPaceMode) } }
     // Claude の月間上限を自分で決めた額に置き換える (nil なら API の上限)
     @Published var claudeLimitOverride: Double? {
         didSet {
@@ -75,6 +78,8 @@ final class UsageSettings: ObservableObject {
         static let showCreditCharge = "showCreditCharge"
         static let useMenuBarIcons = "useMenuBarIcons"
         static let claudeShowsPace = "claudeShowsPace"
+        static let dailyPaceMode = "dailyPaceMode"
+        static let weeklyPaceMode = "weeklyPaceMode"
         static let claudeLimitOverride = "claudeLimitOverride"
         // v1 の「メニューバー表示」設定。claudeMetric に引き継いで削除する
         static let legacyMenuBarMetric = "menuBarMetric"
@@ -94,6 +99,8 @@ final class UsageSettings: ObservableObject {
         showCreditCharge = Self.bool(defaults, Key.showCreditCharge, default: true)
         useMenuBarIcons = Self.bool(defaults, Key.useMenuBarIcons, default: false)
         claudeShowsPace = Self.bool(defaults, Key.claudeShowsPace, default: true)
+        dailyPaceMode = PaceUsageMode(rawValue: defaults.string(forKey: Key.dailyPaceMode) ?? "") ?? .cumulative
+        weeklyPaceMode = PaceUsageMode(rawValue: defaults.string(forKey: Key.weeklyPaceMode) ?? "") ?? .cumulative
         claudeLimitOverride = defaults.object(forKey: Key.claudeLimitOverride) as? Double
     }
 

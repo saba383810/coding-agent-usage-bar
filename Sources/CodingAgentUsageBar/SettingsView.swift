@@ -31,11 +31,7 @@ struct SettingsView: View {
                     .frame(width: 110)
                 }
                 .disabled(!settings.claudeEnabled)
-                Text("""
-                    クレジット制のプランでは、月の上限を日割りした目安を Today / Week として出します。
-                    前日までに使いすぎた分は持ち越すので、朝の時点で 100% になることもあります。
-                    上限を空欄にすると API の値を使います。
-                    """)
+                Text("クレジット制のプランでは、月の上限を日割りした目安を Today / Week として出します。上限を空欄にすると API の値を使います。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -66,6 +62,27 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("目安の数え方") {
+                Picker("Today", selection: $settings.dailyPaceMode) {
+                    Text("今日までの累計").tag(PaceUsageMode.cumulative)
+                    Text("今日使った分").tag(PaceUsageMode.period)
+                }
+                Picker("Week", selection: $settings.weeklyPaceMode) {
+                    Text("今日までの累計").tag(PaceUsageMode.cumulative)
+                    Text("今週使った分").tag(PaceUsageMode.period)
+                }
+                Text("""
+                    累計: 月の初めからの使用量を、今日 (今週) の終わりまでの目安の累計と比べます。\
+                    使いすぎた分は持ち越すので、朝の時点で 100% を超えることもあります。
+                    使った分: 今日 (今週) に使った分だけを、1 日 (1 週) 分の目安と比べます。\
+                    API は月の累計しか返さないので、日ごとに最初に取れた累計との差で数えます。\
+                    アプリが動いていなかった間の使用は数えられません。
+                    """)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .disabled(!settings.claudeShowsPace)
 
             Section("起動") {
                 Toggle("ログイン時に起動", isOn: Binding(

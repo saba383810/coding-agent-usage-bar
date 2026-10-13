@@ -26,6 +26,8 @@ final class UsageModel: ObservableObject {
     private var started = false
     private var isFetching = false
     private var cancellables: Set<AnyCancellable> = []
+    // 今日・今週に使った分を出すための、日ごとの累計の記録
+    private var claudeHistory = UsageHistory(key: "usageHistory.claude")
 
     init(settings: UsageSettings) {
         self.settings = settings
@@ -84,6 +86,7 @@ final class UsageModel: ObservableObject {
                     let usage = try await ClaudeUsageAPI.fetch()
                     claudeRateLimits = usage.rateLimits
                     claudeSpend = usage.spend
+                    if let spend = usage.spend { claudeHistory.record(spend.used.amount) }
                     claudeError = nil
                     succeeded = true
                 } catch {
@@ -169,8 +172,13 @@ final class UsageModel: ObservableObject {
         return claudeRateLimits + ClaudeBudget.limits(
             spend: claudeSpend,
             limitOverride: limitOverride,
-            showsPace: settings.claudeShowsPace
+            pace: settings.claudeShowsPace ? paceOptions : nil,
+            history: claudeHistory
         )
+    }
+
+    private var paceOptions: PaceOptions {
+        PaceOptions(daily: settings.dailyPaceMode, weekly: settings.weeklyPaceMode)
     }
 
     var claudeMenuBarLimit: UsageLimit? {
