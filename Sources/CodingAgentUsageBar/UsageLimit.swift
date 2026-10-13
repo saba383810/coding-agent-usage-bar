@@ -104,6 +104,7 @@ struct UsageLimit: Identifiable {
 enum UsageError: LocalizedError {
     case keychainReadFailed
     case credentialFormat
+    case noUsageData
     case httpStatus(Int, String?, UsageProvider)
     case codexAuthMissing
     case codexAuthFormat
@@ -114,6 +115,8 @@ enum UsageError: LocalizedError {
             return "Keychain からトークンを取得できませんでした"
         case .credentialFormat:
             return "認証情報の形式が想定と異なります"
+        case .noUsageData:
+            return "使用量データが空でした (API の形式が変わった可能性があります)"
         case .httpStatus(let code, let detail, let provider):
             var message = code == 401
                 ? "トークン期限切れの可能性 (\(provider.refreshHint) を起動すると更新されます)"
