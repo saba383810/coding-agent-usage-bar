@@ -1,8 +1,6 @@
 import Foundation
 
 enum ClaudeMetric: String, CaseIterable, Identifiable {
-    case session
-    case weeklyMax
     case dailyPace
     case weeklyPace
     case credits
@@ -12,12 +10,19 @@ enum ClaudeMetric: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .session: return "Session (5h)"
-        case .weeklyMax: return "Week (最大)"
         case .dailyPace: return "Today (目安)"
         case .weeklyPace: return "Week (目安)"
         case .credits: return "Credits (月間の消費)"
         case .max: return "全体の最大"
+        }
+    }
+
+    // 5h / 週の枠が無くなって消した指標は、近い目安に読み替える
+    init(stored: String?) {
+        switch stored {
+        case "session": self = .dailyPace
+        case "weeklyMax": self = .weeklyPace
+        default: self = stored.flatMap(ClaudeMetric.init(rawValue:)) ?? .dailyPace
         }
     }
 }
@@ -84,7 +89,7 @@ final class UsageSettings: ObservableObject {
         codexEnabled = Self.bool(defaults, Key.codexEnabled, default: true)
         claudeInMenuBar = Self.bool(defaults, Key.claudeInMenuBar, default: true)
         codexInMenuBar = Self.bool(defaults, Key.codexInMenuBar, default: true)
-        claudeMetric = ClaudeMetric(rawValue: defaults.string(forKey: Key.claudeMetric) ?? "") ?? .session
+        claudeMetric = ClaudeMetric(stored: defaults.string(forKey: Key.claudeMetric))
         codexMetric = CodexMetric(rawValue: defaults.string(forKey: Key.codexMetric) ?? "") ?? .credits
         showCreditCharge = Self.bool(defaults, Key.showCreditCharge, default: true)
         useMenuBarIcons = Self.bool(defaults, Key.useMenuBarIcons, default: false)
@@ -103,8 +108,8 @@ final class UsageSettings: ObservableObject {
     private static func migrateLegacyMetric(in defaults: UserDefaults) {
         guard let legacy = defaults.string(forKey: Key.legacyMenuBarMetric) else { return }
         switch legacy {
-        case "session": defaults.set(ClaudeMetric.session.rawValue, forKey: Key.claudeMetric)
-        case "weekly": defaults.set(ClaudeMetric.weeklyMax.rawValue, forKey: Key.claudeMetric)
+        case "session": defaults.set(ClaudeMetric.dailyPace.rawValue, forKey: Key.claudeMetric)
+        case "weekly": defaults.set(ClaudeMetric.weeklyPace.rawValue, forKey: Key.claudeMetric)
         case "max": defaults.set(ClaudeMetric.max.rawValue, forKey: Key.claudeMetric)
         default: break
         }

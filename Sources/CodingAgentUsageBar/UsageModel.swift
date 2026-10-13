@@ -178,17 +178,12 @@ final class UsageModel: ObservableObject {
         let dailyPace = limits.first { $0.kind == "pace_daily" }
         let weeklyPace = limits.first { $0.kind == "pace_weekly" }
         let credits = limits.first { $0.group == "credits" }
-        // クレジット制のプランには 5h / 週の枠が無いので、その場合は目安 → クレジットの順で代用する
+        // 目安を切っている時や、5h / 週の枠しか無いプランではクレジット → 全体の最大で代用する
         switch settings.claudeMetric {
-        case .session:
-            return limits.first { $0.kind == "session" } ?? dailyPace ?? credits
-        case .weeklyMax:
-            return highest(in: limits.filter { $0.group == "weekly" || $0.kind.hasPrefix("weekly") })
-                ?? weeklyPace ?? credits
         case .dailyPace:
-            return dailyPace ?? credits
+            return dailyPace ?? credits ?? highest(in: limits)
         case .weeklyPace:
-            return weeklyPace ?? credits
+            return weeklyPace ?? credits ?? highest(in: limits)
         case .credits:
             return credits
         case .max:
