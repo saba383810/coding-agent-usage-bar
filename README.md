@@ -88,16 +88,22 @@ ChatGPT backend は `User-Agent` が無いリクエストを 403 で弾くため
 ### Homebrew (ビルド不要)
 
 ```sh
-brew install --cask --no-quarantine saba383810/tap/coding-agent-usage-bar
+brew install --cask saba383810/tap/coding-agent-usage-bar
 ```
 
-未署名のため `--no-quarantine` が必要。付け忘れた場合は
-`xattr -dr com.apple.quarantine /Applications/CodingAgentUsageBar.app` で解除できる。
+未署名なので、Gatekeeper に止められないよう Cask がインストール後に quarantine 属性を外す。
+
+Cask は `version :latest` なので、通常の `brew upgrade` では更新されない。
+新しいリリースを入れる時は `brew upgrade --cask --greedy coding-agent-usage-bar`。
 
 ### Releases から直接 (ビルド不要)
 
 [Releases](../../releases/latest) の `CodingAgentUsageBar.zip` を展開して
-`/Applications` に入れる。初回だけ Finder で右クリック → 開く が必要。
+`/Applications` に入れる。未署名のため、そのまま開くと Gatekeeper に止められるので
+初回だけ次のどちらかを行う。
+
+- `xattr -dr com.apple.quarantine /Applications/CodingAgentUsageBar.app`
+- 一度開こうとした後、システム設定 → プライバシーとセキュリティ の「このまま開く」
 
 ### ソースからビルド
 
@@ -160,7 +166,7 @@ Actions がビルドして `CodingAgentUsageBar.zip` を Releases に添付す�
 Cask は `version :latest` なので、リリースごとに書き換える必要はない。
 
 Homebrew で配る場合は `saba383810/homebrew-tap` に `Casks/coding-agent-usage-bar.rb`
-を置く (このリポジトリの `Casks/` がそのまま使える)。
+を置く (このリポジトリの `Casks/` がそのまま使える)。Cask を変えたら tap 側にも反映する。
 
 ## License
 
