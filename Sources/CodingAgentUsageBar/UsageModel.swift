@@ -158,11 +158,16 @@ final class UsageModel: ObservableObject {
     }
 
     var claudeMenuBarLimit: UsageLimit? {
+        // クレジット制のプランには 5h / 週の枠が無いので、その場合はクレジットで代用する
+        let credits = claudeLimits.first { $0.group == "credits" }
         switch settings.claudeMetric {
         case .session:
-            return claudeLimits.first { $0.kind == "session" }
+            return claudeLimits.first { $0.kind == "session" } ?? credits
         case .weeklyMax:
             return highest(in: claudeLimits.filter { $0.group == "weekly" || $0.kind.hasPrefix("weekly") })
+                ?? credits
+        case .credits:
+            return credits
         case .max:
             return highest(in: claudeLimits)
         }
