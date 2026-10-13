@@ -15,40 +15,88 @@ struct PaceOptions {
     let weekly: PaceUsageMode
 }
 
-// API は請求期間の累計しか返さないので、日ごとに最初に取れた累計を残しておき、
+// API は請求期間の累計しか返さないので、取れた累計を日ごとに最初と最後の 1 件ずつ残しておき、
 // 今日・今週に使った分をその差分で出す
 struct UsageHistory {
+    struct Sample {
+        let at: Date
+        let used: Double
+    }
+
+    private struct Day {
+        var first: Sample
+        var last: Sample
+
+        init(first: Sample, last: Sample) {
+            self.first = first
+            self.last = last
+        }
+
+        init?(plist: [String: Double]) {
+            guard
+                let firstAt = plist["firstAt"], let first = plist["first"],
+                let lastAt = plist["lastAt"], let last = plist["last"]
+            else { return nil }
+            self.first = Sample(at: Date(timeIntervalSince1970: firstAt), used: first)
+            self.last = Sample(at: Date(timeIntervalSince1970: lastAt), used: last)
+        }
+
+        var plist: [String: Double] {
+            [
+                "firstAt": first.at.timeIntervalSince1970, "first": first.used,
+                "lastAt": last.at.timeIntervalSince1970, "last": last.used,
+            ]
+        }
+    }
+
     private let key: String
     private let defaults: UserDefaults
-    // "yyyy-MM-dd" (ローカル日付) -> その日に最初に取れた累計
-    private var firstUsed: [String: Double]
+    // "yyyy-MM-dd" (ローカル日付) -> その日に最初と最後に取れた累計
+    private var days: [String: Day] = [:]
 
-    init(key: String, defaults: UserDefaults = .standard) {
+    init(key: String, defaults: UserDefaults = .standard, now: Date = Date()) {
         self.key = key
         self.defaults = defaults
-        firstUsed = defaults.dictionary(forKey: key) as? [String: Double] ?? [:]
+        for (day, value) in defaults.dictionary(forKey: key) ?? [:] {
+            if let plist = value as? [String: Double] {
+                days[day] = Day(plist: plist)
+            } else if let used = value as? Double, day == Self.dayKey(now) {
+                // v1.4.0 までは日ごとに最初に取れた累計だけを残していて、取れた時刻が分からない。
+                // 前日の最後の値としては使えないので、今日の分だけを読み込んだ時刻に取れたものとして引き継ぐ
+                let sample = Sample(at: now, used: used)
+                days[day] = Day(first: sample, last: sample)
+            }
+        }
     }
 
     mutating func record(_ used: Double, at date: Date = Date()) {
+        let sample = Sample(at: date, used: used)
         let day = Self.dayKey(date)
-        guard firstUsed[day] == nil else { return }
-        firstUsed[day] = used
-        // 使うのは今週の初めまでなので、古い記録は 2 か月分だけ残す
-        if let cutoff = Calendar.current.date(byAdding: .day, value: -62, to: date) {
-            let cutoffKey = Self.dayKey(cutoff)
-            firstUsed = firstUsed.filter { $0.key >= cutoffKey }
+        if days[day] == nil {
+            days[day] = Day(first: sample, last: sample)
+            // 使うのは今週の初めの前日までなので、古い記録は 2 か月分だけ残す
+            if let cutoff = Calendar.current.date(byAdding: .day, value: -62, to: date) {
+                let cutoffKey = Self.dayKey(cutoff)
+                days = days.filter { $0.key >= cutoffKey }
+            }
+        } else {
+            days[day]?.last = sample
         }
-        defaults.set(firstUsed, forKey: key)
+        defaults.set(days.mapValues(\.plist), forKey: key)
     }
 
-    // date の日以降で最初に記録がある日と、その日に最初に取れた累計
-    func firstRecord(onOrAfter date: Date) -> (day: Date, used: Double)? {
-        let startKey = Self.dayKey(date)
-        guard
-            let entry = firstUsed.filter({ $0.key >= startKey }).min(by: { $0.key < $1.key }),
-            let day = Self.formatter.date(from: entry.key)
-        else { return nil }
-        return (day, entry.value)
+    // date より前で最後に取れた累計
+    func lastSample(before date: Date) -> Sample? {
+        samples.filter { $0.at < date }.max { $0.at < $1.at }
+    }
+
+    // date 以降で最初に取れた累計
+    func firstSample(onOrAfter date: Date) -> Sample? {
+        samples.filter { $0.at >= date }.min { $0.at < $1.at }
+    }
+
+    private var samples: [Sample] {
+        days.values.flatMap { [$0.first, $0.last] }
     }
 
     private static let formatter: DateFormatter = {
@@ -104,12 +152,17 @@ enum SpendPace {
                 if span.start <= period.start {
                     // 請求期間の初めからの期間なら、累計がそのまま使った分
                     spent = used
-                } else if let record = history.firstRecord(onOrAfter: span.start) {
-                    spent = max(used - record.used, 0)
-                    if record.day > span.start {
-                        // それより前はアプリが動いておらず、その間の使用は数えられない
-                        details.append("記録は \(dayText(record.day)) から")
-                    }
+                } else if let prior = history.lastSample(before: span.start),
+                          prior.at >= period.start,
+                          span.start.timeIntervalSince(prior.at) <= 86_400 {
+                    // 前日 (前週の最終日) の最後の記録から数える。
+                    // Mac がスリープしていた間の使用もこちらに入るので、日ごとの分を足すと累計に一致する
+                    spent = max(used - prior.used, 0)
+                } else if let first = history.firstSample(onOrAfter: span.start) {
+                    // 直前の記録が無い (アプリを入れた日や、Mac を 1 日以上止めていた後) ので、
+                    // 期間内で最初に取れた時から数える。それより前の使用は数えられない
+                    spent = max(used - first.used, 0)
+                    details.append("記録は \(isWeek ? dayText(first.at) + " " : "")\(timeText(first.at)) から")
                 } else {
                     // 日付が変わってからまだ取得していない
                     spent = nil
@@ -148,5 +201,10 @@ enum SpendPace {
     private static func dayText(_ date: Date) -> String {
         let components = Calendar.current.dateComponents([.month, .day], from: date)
         return "\(components.month ?? 0)/\(components.day ?? 0)"
+    }
+
+    private static func timeText(_ date: Date) -> String {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return String(format: "%d:%02d", components.hour ?? 0, components.minute ?? 0)
     }
 }
