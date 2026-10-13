@@ -14,13 +14,15 @@ Mac のメニューバーに Claude Code と Codex の使用量 (セッション
   どちらのゲージかは設定でアイコン (Claude: `asterisk` / Codex: `hexagon`) か
   文字 (`Cl` / `Cx`) を選べる
 - **クリックでポップオーバー**:
-  - Claude: Session (5h) / Week (all models) / Week (モデル別) / Credits (monthly)
+  - Claude: Session (5h) / Week (all models) / Week (モデル別) / Credits (monthly)。
+    クレジット制のプランでは 5h / 週の代わりに Today (目安) / Week (目安)
   - Codex: Credits (クレジット消費・請求段階・次の段階までのバー)。
     レート制限があるプランでは 5h / 週も
   - 各リミットのリセット時刻と残り時間
 - **設定 (歯車ボタン)**: Claude / Codex それぞれの欄で
   - 使用量を表示するかどうか (外すと配下の項目も非アクティブになり、API も叩かない)
   - メニューバーに出すかどうかと、出す指標
+  - Claude は日・週の目安を出すかどうかと、月の上限の上書き
   - Codex はクレジットの請求段階を出すかどうか
   - メニューバーの識別子をアイコンにするか文字にするか
 - 3 分ごとに自動更新 (API が 429 を返した場合は間隔を倍々で広げ、最大 30 分)
@@ -41,8 +43,14 @@ OAuth トークンを使い、`https://api.anthropic.com/api/oauth/usage` を叩
 `/usage` コマンドと同じデータ。
 
 クレジット制のプランでは `limits` が空で `five_hour` / `seven_day` も null になり、
-月間のクレジット消費 (`spend`) だけが返る。この場合は Credits (monthly) だけを出し、
-メニューバーの指標が Session / Week でもクレジットの消費率で代用する。
+月間のクレジット消費 (`spend`) だけが返る。この場合は Credits (monthly) に加えて、
+月の上限を日割りした目安を Today (目安) / Week (目安) として出す。
+
+- 1 日の目安 = 月の上限 ÷ 月の日数。週は月曜始まりで、月をまたぐ週は月の境界で区切る
+- API は月初からの累計しか返さないので、期間の開始時点までに使ってよかった額を超えた分を
+  その期間の消費とみなす。前日までに使いすぎていれば、朝の時点で 100% になりうる
+- 月の上限は設定で上書きできる (空欄なら API の値)。Credits の % と目安はその額で計算する
+- メニューバーの指標が Session / Week のままなら、Today (目安) / Week (目安) で代用する
 
 ### Codex
 
