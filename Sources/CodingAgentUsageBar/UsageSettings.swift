@@ -58,6 +58,9 @@ final class UsageSettings: ObservableObject {
     // 目安の「使用」を累計で数えるか、今日 (今週) に使った分で数えるか
     @Published var dailyPaceMode: PaceUsageMode { didSet { store(dailyPaceMode.rawValue, Key.dailyPaceMode) } }
     @Published var weeklyPaceMode: PaceUsageMode { didSet { store(weeklyPaceMode.rawValue, Key.weeklyPaceMode) } }
+    @Published var paceExcludesHolidays: Bool { didSet { store(paceExcludesHolidays, Key.paceExcludesHolidays) } }
+    // 目安の 1 日の区切り (0 時からの分)
+    @Published var dayStartMinutes: Int { didSet { store(dayStartMinutes, Key.dayStartMinutes) } }
     // Claude の月間上限を自分で決めた額に置き換える (nil なら API の上限)
     @Published var claudeLimitOverride: Double? {
         didSet {
@@ -82,6 +85,8 @@ final class UsageSettings: ObservableObject {
         static let codexShowsPace = "codexShowsPace"
         static let dailyPaceMode = "dailyPaceMode"
         static let weeklyPaceMode = "weeklyPaceMode"
+        static let paceExcludesHolidays = "paceExcludesHolidays"
+        static let dayStartMinutes = "dayStartMinutes"
         static let claudeLimitOverride = "claudeLimitOverride"
         // v1 の「メニューバー表示」設定。claudeMetric に引き継いで削除する
         static let legacyMenuBarMetric = "menuBarMetric"
@@ -104,6 +109,8 @@ final class UsageSettings: ObservableObject {
         codexShowsPace = Self.bool(defaults, Key.codexShowsPace, default: true)
         dailyPaceMode = PaceUsageMode(rawValue: defaults.string(forKey: Key.dailyPaceMode) ?? "") ?? .cumulative
         weeklyPaceMode = PaceUsageMode(rawValue: defaults.string(forKey: Key.weeklyPaceMode) ?? "") ?? .cumulative
+        paceExcludesHolidays = Self.bool(defaults, Key.paceExcludesHolidays, default: false)
+        dayStartMinutes = min(max(defaults.integer(forKey: Key.dayStartMinutes), 0), 24 * 60 - 1)
         claudeLimitOverride = defaults.object(forKey: Key.claudeLimitOverride) as? Double
     }
 

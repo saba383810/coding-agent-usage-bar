@@ -65,7 +65,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("目安の数え方") {
+            Section("目安") {
                 Picker("Today", selection: $settings.dailyPaceMode) {
                     Text("今日までの累計").tag(PaceUsageMode.cumulative)
                     Text("今日使った分").tag(PaceUsageMode.period)
@@ -74,12 +74,16 @@ struct SettingsView: View {
                     Text("今日までの累計").tag(PaceUsageMode.cumulative)
                     Text("今週使った分").tag(PaceUsageMode.period)
                 }
+                Toggle("土日祝を除いて日割りする", isOn: $settings.paceExcludesHolidays)
+                DatePicker("1 日の区切り", selection: dayStart, displayedComponents: .hourAndMinute)
                 Text("""
                     累計: 月の初めからの使用量を、今日 (今週) の終わりまでの目安の累計と比べます。\
                     使いすぎた分は持ち越すので、朝の時点で 100% を超えることもあります。
                     使った分: 今日 (今週) に使った分だけを、1 日 (1 週) 分の目安と比べます。\
                     API は月の累計しか返さないので、前日の最後に取れた累計との差で数えます。\
                     アプリを入れた日や、Mac を 1 日以上止めていた後は、その日最初に取れた時からの分になります。
+                    土日祝を除くと、目安は平日だけに割り振り、休日は「目安なし」になります (年末年始などの会社の休みは含みません)。
+                    1 日の区切りを 5:00 にすると、深夜 0〜5 時の使用は前日の分になります。
                     """)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -120,6 +124,24 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // 1 日の区切りは 0 時からの分で持つので、DatePicker 用に今日のその時刻に直す
+    private var dayStart: Binding<Date> {
+        Binding(
+            get: {
+                Calendar.current.date(
+                    bySettingHour: settings.dayStartMinutes / 60,
+                    minute: settings.dayStartMinutes % 60,
+                    second: 0,
+                    of: Date()
+                ) ?? Date()
+            },
+            set: { date in
+                let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+                settings.dayStartMinutes = (components.hour ?? 0) * 60 + (components.minute ?? 0)
+            }
+        )
     }
 }
 

@@ -89,7 +89,7 @@ final class UsageModel: ObservableObject {
                     let usage = try await ClaudeUsageAPI.fetch()
                     claudeRateLimits = usage.rateLimits
                     claudeSpend = usage.spend
-                    if let spend = usage.spend { claudeHistory.record(spend.used.amount) }
+                    if let spend = usage.spend { claudeHistory.record(spend.used.amount, dayStart: paceOptions.calendar.dayStart) }
                     claudeError = nil
                     succeeded = true
                 } catch {
@@ -107,7 +107,7 @@ final class UsageModel: ObservableObject {
                     let usage = try await CodexUsageAPI.fetch()
                     codexRawLimits = usage.limits
                     codexSpend = usage.spend
-                    if let spend = usage.spend { codexHistory.record(spend.used) }
+                    if let spend = usage.spend { codexHistory.record(spend.used, dayStart: paceOptions.calendar.dayStart) }
                     codexError = nil
                     succeeded = true
                 } catch {
@@ -202,7 +202,14 @@ final class UsageModel: ObservableObject {
     }
 
     private var paceOptions: PaceOptions {
-        PaceOptions(daily: settings.dailyPaceMode, weekly: settings.weeklyPaceMode)
+        PaceOptions(
+            daily: settings.dailyPaceMode,
+            weekly: settings.weeklyPaceMode,
+            calendar: PaceCalendar(
+                dayStart: TimeInterval(settings.dayStartMinutes * 60),
+                excludesHolidays: settings.paceExcludesHolidays
+            )
+        )
     }
 
     var claudeMenuBarLimit: UsageLimit? {
