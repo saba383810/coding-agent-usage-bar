@@ -218,8 +218,6 @@ final class UsageModel: ObservableObject {
             return weeklyPace ?? credits ?? highest(in: limits)
         case .credits:
             return credits
-        case .max:
-            return highest(in: limits)
         }
     }
 
@@ -240,8 +238,6 @@ final class UsageModel: ObservableObject {
             return codexCreditsLimit?.percent
         case .creditTier:
             return codexCreditsLimit?.creditTier?.percent
-        case .max:
-            return highest(in: limits)?.percent
         }
     }
 

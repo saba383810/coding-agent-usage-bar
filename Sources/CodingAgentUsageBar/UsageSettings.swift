@@ -4,7 +4,6 @@ enum ClaudeMetric: String, CaseIterable, Identifiable {
     case dailyPace
     case weeklyPace
     case credits
-    case max
 
     var id: String { rawValue }
 
@@ -13,11 +12,10 @@ enum ClaudeMetric: String, CaseIterable, Identifiable {
         case .dailyPace: return "Today (目安)"
         case .weeklyPace: return "Week (目安)"
         case .credits: return "Credits (月間の消費)"
-        case .max: return "全体の最大"
         }
     }
 
-    // 5h / 週の枠が無くなって消した指標は、近い目安に読み替える
+    // 消した指標 (5h / 週の枠、全体の最大) は、近い目安に読み替える
     init(stored: String?) {
         switch stored {
         case "session": self = .dailyPace
@@ -32,7 +30,6 @@ enum CodexMetric: String, CaseIterable, Identifiable {
     case weeklyPace
     case credits
     case creditTier
-    case max
 
     var id: String { rawValue }
 
@@ -42,7 +39,6 @@ enum CodexMetric: String, CaseIterable, Identifiable {
         case .weeklyPace: return "Week (目安)"
         case .credits: return "Credits (上限に対する消費)"
         case .creditTier: return "次の請求段階まで"
-        case .max: return "全体の最大"
         }
     }
 }
@@ -124,7 +120,6 @@ final class UsageSettings: ObservableObject {
         switch legacy {
         case "session": defaults.set(ClaudeMetric.dailyPace.rawValue, forKey: Key.claudeMetric)
         case "weekly": defaults.set(ClaudeMetric.weeklyPace.rawValue, forKey: Key.claudeMetric)
-        case "max": defaults.set(ClaudeMetric.max.rawValue, forKey: Key.claudeMetric)
         default: break
         }
         defaults.removeObject(forKey: Key.legacyMenuBarMetric)
