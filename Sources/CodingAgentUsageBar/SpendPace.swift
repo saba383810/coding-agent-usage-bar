@@ -6,6 +6,8 @@ enum PaceUsageMode: String, CaseIterable, Identifiable {
     case cumulative
     // 今日 (今週) に使った分だけを、1 日 (1 週) 分の目安と比べる
     case period
+    // 今日 (今週) に使った分を、その時点の残りの額を月末までの日数で割り直した目安と比べる
+    case remaining
 
     var id: String { rawValue }
 }
@@ -179,6 +181,12 @@ enum SpendPace {
             let target: Double?
             if spanWeight == 0 {
                 target = nil
+            } else if mode == .remaining {
+                // 期間の初めに残っていた額を、期間の終わり (月末) までの日数で割り直す
+                let rest = max(limit - (baseline ?? used), 0)
+                let restWeight = days.weight(from: span.start, to: period.end)
+                target = rest * spanWeight / restWeight
+                notes.insert("残り \(format(rest)) を \(dayCount(restWeight))で割り直し", at: 0)
             } else {
                 target = budget(from: span.start, to: span.end)
             }
@@ -188,6 +196,8 @@ enum SpendPace {
             if isWeek { line += " (\(days.rangeText(span.start, span.end)))" }
             let percent: Double? = {
                 guard let spent, let target else { return nil }
+                // 残りを使い切った後は、少しでも使えば超過
+                if target <= 0 { return spent > 0 ? 100 : 0 }
                 return spent / target * 100
             }()
             return UsageLimit(
@@ -210,6 +220,12 @@ enum SpendPace {
             rows.append(row(kind: "pace_weekly", title: "Week (目安)", span: week, mode: options.weekly, spanName: "今週"))
         }
         return rows
+    }
+
+    // 割り直しに使った日数。Codex のように途中から始まる日があれば小数で出す
+    private static func dayCount(_ weight: TimeInterval) -> String {
+        let days = weight / 86_400
+        return abs(days - days.rounded()) < 0.05 ? "\(Int(days.rounded())) 日" : String(format: "%.1f 日", days)
     }
 
     private static func timeText(_ date: Date) -> String {

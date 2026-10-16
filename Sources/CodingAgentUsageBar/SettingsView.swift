@@ -69,10 +69,12 @@ struct SettingsView: View {
                 Picker("Today", selection: $settings.dailyPaceMode) {
                     Text("今日までの累計").tag(PaceUsageMode.cumulative)
                     Text("今日使った分").tag(PaceUsageMode.period)
+                    Text("今日使った分 (残りを日割り)").tag(PaceUsageMode.remaining)
                 }
                 Picker("Week", selection: $settings.weeklyPaceMode) {
                     Text("今日までの累計").tag(PaceUsageMode.cumulative)
                     Text("今週使った分").tag(PaceUsageMode.period)
+                    Text("今週使った分 (残りを日割り)").tag(PaceUsageMode.remaining)
                 }
                 Toggle("土日祝を除いて日割りする", isOn: $settings.paceExcludesHolidays)
                 DatePicker("1 日の区切り", selection: dayStart, displayedComponents: .hourAndMinute)
@@ -82,6 +84,7 @@ struct SettingsView: View {
                     使った分: 今日 (今週) に使った分だけを、1 日 (1 週) 分の目安と比べます。\
                     API は月の累計しか返さないので、前日の最後に取れた累計との差で数えます。\
                     アプリを入れた日や、Mac を 1 日以上止めていた後は、その日最初に取れた時からの分になります。
+                    残りを日割り: 今日 (今週) の初めに残っていた額を、月末までの日数で割り直した目安と比べます。
                     土日祝を除くと、目安は平日だけに割り振り、休日は「目安なし」になります (年末年始などの会社の休みは含みません)。
                     1 日の区切りを 5:00 にすると、深夜 0〜5 時の使用は前日の分になります。
                     """)
