@@ -125,8 +125,13 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        // 項目が多く画面に収まらないことがあるので、高さは画面に合わせて抑え、残りはスクロールで見せる
         .frame(width: 460)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(minHeight: 320, idealHeight: Self.idealHeight, maxHeight: .infinity)
+    }
+
+    private static var idealHeight: CGFloat {
+        min((NSScreen.main?.visibleFrame.height ?? 800) - 80, 900)
     }
 
     // 1 日の区切りは 0 時からの分で持つので、DatePicker 用に今日のその時刻に直す
@@ -161,7 +166,8 @@ final class SettingsWindowController {
             )
             let window = NSWindow(contentViewController: controller)
             window.title = "Coding Agent Usage Bar の設定"
-            window.styleMask = [.titled, .closable]
+            // 画面が低い時に広げられるよう、縦だけ伸び縮みできるようにする (幅は SwiftUI 側で固定)
+            window.styleMask = [.titled, .closable, .resizable]
             window.isReleasedWhenClosed = false
             window.center()
             self.window = window
