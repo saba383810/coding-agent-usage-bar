@@ -43,6 +43,15 @@ enum CodexMetric: String, CaseIterable, Identifiable {
     }
 }
 
+// 日・週の目安の設定。Claude と Codex で別々に持つ
+struct PaceSettings: Equatable {
+    var shows: Bool
+    // 目安の「使用」を累計で数えるか、今日 (今週) に使った分で数えるか
+    var daily: PaceUsageMode
+    var weekly: PaceUsageMode
+    var excludesHolidays: Bool
+}
+
 @MainActor
 final class UsageSettings: ObservableObject {
     @Published var claudeEnabled: Bool { didSet { store(claudeEnabled, Key.claudeEnabled) } }
@@ -53,15 +62,13 @@ final class UsageSettings: ObservableObject {
     @Published var codexMetric: CodexMetric { didSet { store(codexMetric.rawValue, Key.codexMetric) } }
     @Published var showCreditCharge: Bool { didSet { store(showCreditCharge, Key.showCreditCharge) } }
     @Published var useMenuBarIcons: Bool { didSet { store(useMenuBarIcons, Key.useMenuBarIcons) } }
-    @Published var claudeShowsPace: Bool { didSet { store(claudeShowsPace, Key.claudeShowsPace) } }
-    @Published var codexShowsPace: Bool { didSet { store(codexShowsPace, Key.codexShowsPace) } }
-    // 目安の「使用」を累計で数えるか、今日 (今週) に使った分で数えるか
-    @Published var dailyPaceMode: PaceUsageMode { didSet { store(dailyPaceMode.rawValue, Key.dailyPaceMode) } }
-    @Published var weeklyPaceMode: PaceUsageMode { didSet { store(weeklyPaceMode.rawValue, Key.weeklyPaceMode) } }
-    @Published var paceExcludesHolidays: Bool { didSet { store(paceExcludesHolidays, Key.paceExcludesHolidays) } }
-    // 目安の 1 日の区切り (0 時からの分)
+    @Published var claudePace: PaceSettings { didSet { store(claudePace, PaceKey.claude) } }
+    @Published var codexPace: PaceSettings { didSet { store(codexPace, PaceKey.codex) } }
+    // 目安の 1 日の区切り (0 時からの分)。Claude と Codex で共通
     @Published var dayStartMinutes: Int { didSet { store(dayStartMinutes, Key.dayStartMinutes) } }
-    // Claude の月間上限を自分で決めた額に置き換える (nil なら API の上限)
+    // Claude の月間上限を自分で決めた額に置き換える
+    @Published var claudeOverridesLimit: Bool { didSet { store(claudeOverridesLimit, Key.claudeOverridesLimit) } }
+    // 上書きする額。上書きを切っても残しておき、入れ直した時に使う
     @Published var claudeLimitOverride: Double? {
         didSet {
             if let claudeLimitOverride {
@@ -81,15 +88,31 @@ final class UsageSettings: ObservableObject {
         static let codexMetric = "codexMetric"
         static let showCreditCharge = "showCreditCharge"
         static let useMenuBarIcons = "useMenuBarIcons"
-        static let claudeShowsPace = "claudeShowsPace"
-        static let codexShowsPace = "codexShowsPace"
-        static let dailyPaceMode = "dailyPaceMode"
-        static let weeklyPaceMode = "weeklyPaceMode"
-        static let paceExcludesHolidays = "paceExcludesHolidays"
         static let dayStartMinutes = "dayStartMinutes"
+        static let claudeOverridesLimit = "claudeOverridesLimit"
         static let claudeLimitOverride = "claudeLimitOverride"
+        // Claude と Codex で共通だった目安の数え方。どちらかを未設定のうちはこれを引き継ぐ
+        static let legacyDailyPaceMode = "dailyPaceMode"
+        static let legacyWeeklyPaceMode = "weeklyPaceMode"
         // v1 の「メニューバー表示」設定。claudeMetric に引き継いで削除する
         static let legacyMenuBarMetric = "menuBarMetric"
+    }
+
+    private struct PaceKey {
+        let shows: String
+        let daily: String
+        let weekly: String
+        let excludesHolidays: String
+
+        static let claude = PaceKey(provider: "claude")
+        static let codex = PaceKey(provider: "codex")
+
+        private init(provider: String) {
+            shows = "\(provider)ShowsPace"
+            daily = "\(provider)DailyPaceMode"
+            weekly = "\(provider)WeeklyPaceMode"
+            excludesHolidays = "\(provider)PaceExcludesHolidays"
+        }
     }
 
     private let defaults: UserDefaults
@@ -105,17 +128,36 @@ final class UsageSettings: ObservableObject {
         codexMetric = CodexMetric(rawValue: defaults.string(forKey: Key.codexMetric) ?? "") ?? .credits
         showCreditCharge = Self.bool(defaults, Key.showCreditCharge, default: true)
         useMenuBarIcons = Self.bool(defaults, Key.useMenuBarIcons, default: false)
-        claudeShowsPace = Self.bool(defaults, Key.claudeShowsPace, default: true)
-        codexShowsPace = Self.bool(defaults, Key.codexShowsPace, default: true)
-        dailyPaceMode = PaceUsageMode(rawValue: defaults.string(forKey: Key.dailyPaceMode) ?? "") ?? .cumulative
-        weeklyPaceMode = PaceUsageMode(rawValue: defaults.string(forKey: Key.weeklyPaceMode) ?? "") ?? .cumulative
-        paceExcludesHolidays = Self.bool(defaults, Key.paceExcludesHolidays, default: false)
+        claudePace = Self.pace(defaults, PaceKey.claude)
+        codexPace = Self.pace(defaults, PaceKey.codex)
         dayStartMinutes = min(max(defaults.integer(forKey: Key.dayStartMinutes), 0), 24 * 60 - 1)
-        claudeLimitOverride = defaults.object(forKey: Key.claudeLimitOverride) as? Double
+        let limitOverride = defaults.object(forKey: Key.claudeLimitOverride) as? Double
+        claudeLimitOverride = limitOverride
+        // 上書きのスイッチが無かった頃は、額が入っていれば上書きしていた
+        claudeOverridesLimit = Self.bool(defaults, Key.claudeOverridesLimit, default: (limitOverride ?? 0) > 0)
     }
 
     private func store(_ value: Any, _ key: String) {
         defaults.set(value, forKey: key)
+    }
+
+    private func store(_ pace: PaceSettings, _ key: PaceKey) {
+        defaults.set(pace.shows, forKey: key.shows)
+        defaults.set(pace.daily.rawValue, forKey: key.daily)
+        defaults.set(pace.weekly.rawValue, forKey: key.weekly)
+        defaults.set(pace.excludesHolidays, forKey: key.excludesHolidays)
+    }
+
+    private static func pace(_ defaults: UserDefaults, _ key: PaceKey) -> PaceSettings {
+        func mode(_ key: String, legacy: String) -> PaceUsageMode {
+            PaceUsageMode(rawValue: defaults.string(forKey: key) ?? defaults.string(forKey: legacy) ?? "") ?? .cumulative
+        }
+        return PaceSettings(
+            shows: bool(defaults, key.shows, default: true),
+            daily: mode(key.daily, legacy: Key.legacyDailyPaceMode),
+            weekly: mode(key.weekly, legacy: Key.legacyWeeklyPaceMode),
+            excludesHolidays: bool(defaults, key.excludesHolidays, default: false)
+        )
     }
 
     private static func bool(_ defaults: UserDefaults, _ key: String, default fallback: Bool) -> Bool {
