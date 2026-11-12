@@ -36,34 +36,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Codex") {
-                Toggle("使用量を表示する", isOn: $settings.codexEnabled)
-                    .disabled(!model.codexAvailable)
-                if !model.codexAvailable {
-                    Text("~/.codex/auth.json が見つからないため表示できません")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Toggle("メニューバーに出す", isOn: $settings.codexInMenuBar)
-                    .disabled(!model.codexActive)
-                Picker("メニューバーの指標", selection: $settings.codexMetric) {
-                    ForEach(CodexMetric.allCases) { metric in
-                        Text(metric.label).tag(metric)
-                    }
-                }
-                .disabled(!model.codexActive || !settings.codexInMenuBar)
-                Toggle("日・週の目安を表示", isOn: $settings.codexShowsPace)
-                    .disabled(!model.codexActive)
-                Toggle("クレジットの請求段階を表示", isOn: $settings.showCreditCharge)
-                    .disabled(!model.codexActive)
-                Text("""
-                    請求段階は 0 なら請求なし、上限の 1/20 までで 40 ドル、上限までで 200 ドル、\
-                    超過すると翌月まで利用不可 (上限緩和申請で継続可)。
-                    境界は API が返す上限に対する比率で判定するため、3 倍キャンペーン中も追従します。
-                    """)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            codexSettings
 
             Section("目安の数え方") {
                 Picker("Today", selection: $settings.dailyPaceMode) {
@@ -84,7 +57,8 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .disabled(!settings.claudeShowsPace && !settings.codexShowsPace)
+            .disabled(!(settings.claudeEnabled && settings.claudeShowsPace)
+                && !(model.codexActive && model.codexSupportsPace && settings.codexShowsPace))
 
             Section("起動") {
                 Toggle("ログイン時に起動", isOn: Binding(
@@ -120,6 +94,58 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var codexSettings: some View {
+        let display = model.codexDisplay
+        return Section("Codex") {
+            Toggle("使用量を表示する", isOn: $settings.codexEnabled)
+                .disabled(!model.codexAvailable)
+            if !model.codexAvailable {
+                Text("~/.codex/auth.json が見つからないため表示できません")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let plan = model.codexPlanType {
+                LabeledContent("現在のプラン", value: plan.capitalized)
+            }
+            Toggle("メニューバーに出す", isOn: $settings.codexInMenuBar)
+                .disabled(!model.codexActive)
+            Picker("メニューバーの指標", selection: Binding(
+                get: { model.codexDisplay.effectiveMetric(settings.codexMetric) },
+                set: { settings.codexMetric = $0 }
+            )) {
+                ForEach(display.availableMetrics) { metric in
+                    Text(metric.label).tag(metric)
+                }
+            }
+            .disabled(!model.codexActive || !settings.codexInMenuBar)
+
+            if let automatic = display.automaticLimit {
+                Text("自動: \(automatic.title)。利用できる指標はプランに合わせて切り替わります。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if display.effectiveMetric(settings.codexMetric) != settings.codexMetric {
+                Text("選択していた指標が利用できないため、自動で表示しています。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if model.codexSupportsPace {
+                Toggle("日・週の目安を表示", isOn: $settings.codexShowsPace)
+                    .disabled(!model.codexActive)
+                Text("クレジット上限を日割りした目安を Today / Week として表示します。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if display.supportsCreditTier {
+                Toggle("クレジットの請求段階を表示", isOn: $settings.showCreditCharge)
+                    .disabled(!model.codexActive)
+                Text("現在の請求段階と、次の段階までの使用量を表示します。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 

@@ -10,6 +10,7 @@ final class UsageModel: ObservableObject {
     // API から取れた行と支出上限。目安の行は codexLimits で足す
     @Published private var codexRawLimits: [UsageLimit] = []
     @Published private var codexSpend: CodexSpend?
+    @Published private(set) var codexPlanType: String?
     @Published var claudeError: String?
     @Published var codexError: String?
     @Published var codexAvailable = false
@@ -107,6 +108,7 @@ final class UsageModel: ObservableObject {
                     let usage = try await CodexUsageAPI.fetch()
                     codexRawLimits = usage.limits
                     codexSpend = usage.spend
+                    codexPlanType = usage.planType
                     if let spend = usage.spend { codexHistory.record(spend.used) }
                     codexError = nil
                     succeeded = true
@@ -117,6 +119,7 @@ final class UsageModel: ObservableObject {
             } else {
                 codexRawLimits = []
                 codexSpend = nil
+                codexPlanType = nil
                 codexError = nil
             }
 
@@ -223,26 +226,13 @@ final class UsageModel: ObservableObject {
         }
     }
 
-    // クレジット行 (percent を持つものを優先)
-    var codexCreditsLimit: UsageLimit? {
-        codexRawLimits.first { $0.group == "credits" && $0.percent != nil }
-            ?? codexRawLimits.first { $0.group == "credits" }
-    }
+    var codexDisplay: CodexDisplay { CodexDisplay(limits: codexLimits) }
+
+    // 目安を OFF にしていても、上限があるプランなら再び ON にできる。
+    var codexSupportsPace: Bool { (codexSpend?.limit ?? 0) > 0 }
 
     var codexMenuBarPercent: Double? {
-        let limits = codexLimits
-        switch settings.codexMetric {
-        case .dailyPace:
-            return (limits.first { $0.kind == "pace_daily" } ?? codexCreditsLimit)?.percent
-        case .weeklyPace:
-            return (limits.first { $0.kind == "pace_weekly" } ?? codexCreditsLimit)?.percent
-        case .credits:
-            return codexCreditsLimit?.percent
-        case .creditTier:
-            return codexCreditsLimit?.creditTier?.percent
-        case .max:
-            return highest(in: limits)?.percent
-        }
+        codexDisplay.percent(for: settings.codexMetric)
     }
 
     private func highest(in limits: [UsageLimit]) -> UsageLimit? {
