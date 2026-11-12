@@ -4,6 +4,7 @@ struct CodexUsage {
     let limits: [UsageLimit]
     // 目安の計算用。spend control が無いプランでは nil
     let spend: CodexSpend?
+    let planType: String?
 }
 
 // ワークスペースの支出上限に対する消費 (単位はクレジット)
@@ -137,7 +138,10 @@ enum CodexUsageAPI {
         if let credits = json["credits"] as? [String: Any] {
             let unlimited = credits["unlimited"] as? Bool ?? false
             let balance = UsageParse.double(credits["balance"])
-            if unlimited || balance != nil {
+            // Plus / Pro など追加クレジットを持たない環境の「残高 0」は表示しない。
+            // has_credits がない旧形式や、実際の残高がある場合は従来どおり表示する。
+            let unusedBalance = (credits["has_credits"] as? Bool) == false && balance == 0
+            if unlimited || (balance != nil && !unusedBalance) {
                 let detail: String = {
                     if unlimited { return "無制限" }
                     guard let balance else { return "–" }
@@ -154,7 +158,8 @@ enum CodexUsageAPI {
             }
         }
 
-        return CodexUsage(limits: limits, spend: spendUsage)
+        guard !limits.isEmpty else { throw UsageError.noUsageData }
+        return CodexUsage(limits: limits, spend: spendUsage, planType: json["plan_type"] as? String)
     }
 
     // rate_limit の primary_window / secondary_window を UsageLimit に変換する

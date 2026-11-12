@@ -28,6 +28,9 @@ enum ClaudeMetric: String, CaseIterable, Identifiable {
 }
 
 enum CodexMetric: String, CaseIterable, Identifiable {
+    case automatic
+    case session
+    case weekly
     case dailyPace
     case weeklyPace
     case credits
@@ -38,6 +41,9 @@ enum CodexMetric: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
+        case .automatic: return "自動 (プランに合わせる)"
+        case .session: return "セッションの使用率"
+        case .weekly: return "週間の使用率"
         case .dailyPace: return "Today (目安)"
         case .weeklyPace: return "Week (目安)"
         case .credits: return "Credits (上限に対する消費)"
@@ -101,7 +107,7 @@ final class UsageSettings: ObservableObject {
         claudeInMenuBar = Self.bool(defaults, Key.claudeInMenuBar, default: true)
         codexInMenuBar = Self.bool(defaults, Key.codexInMenuBar, default: true)
         claudeMetric = ClaudeMetric(stored: defaults.string(forKey: Key.claudeMetric))
-        codexMetric = CodexMetric(rawValue: defaults.string(forKey: Key.codexMetric) ?? "") ?? .credits
+        codexMetric = CodexMetric(rawValue: defaults.string(forKey: Key.codexMetric) ?? "") ?? .automatic
         showCreditCharge = Self.bool(defaults, Key.showCreditCharge, default: true)
         useMenuBarIcons = Self.bool(defaults, Key.useMenuBarIcons, default: false)
         claudeShowsPace = Self.bool(defaults, Key.claudeShowsPace, default: true)

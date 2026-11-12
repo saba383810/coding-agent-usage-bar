@@ -8,6 +8,10 @@ let package = Package(
         .executableTarget(
             name: "CodingAgentUsageBar",
             path: "Sources/CodingAgentUsageBar"
+        ),
+        .testTarget(
+            name: "CodingAgentUsageBarTests",
+            dependencies: ["CodingAgentUsageBar"]
         )
     ]
 )
