@@ -89,7 +89,7 @@ final class UsageModel: ObservableObject {
                     let usage = try await ClaudeUsageAPI.fetch()
                     claudeRateLimits = usage.rateLimits
                     claudeSpend = usage.spend
-                    if let spend = usage.spend { claudeHistory.record(spend.used.amount, dayStart: paceOptions.calendar.dayStart) }
+                    if let spend = usage.spend { claudeHistory.record(spend.used.amount, dayStart: dayStart) }
                     claudeError = nil
                     succeeded = true
                 } catch {
@@ -107,7 +107,7 @@ final class UsageModel: ObservableObject {
                     let usage = try await CodexUsageAPI.fetch()
                     codexRawLimits = usage.limits
                     codexSpend = usage.spend
-                    if let spend = usage.spend { codexHistory.record(spend.used, dayStart: paceOptions.calendar.dayStart) }
+                    if let spend = usage.spend { codexHistory.record(spend.used, dayStart: dayStart) }
                     codexError = nil
                     succeeded = true
                 } catch {
@@ -175,18 +175,18 @@ final class UsageModel: ObservableObject {
     var claudeLimits: [UsageLimit] {
         guard let claudeSpend else { return claudeRateLimits }
         // 0 以下は上書きしていない扱い
-        let limitOverride = settings.claudeLimitOverride.flatMap { $0 > 0 ? $0 : nil }
+        let limitOverride = settings.claudeOverridesLimit ? settings.claudeLimitOverride.flatMap { $0 > 0 ? $0 : nil } : nil
         return claudeRateLimits + ClaudeBudget.limits(
             spend: claudeSpend,
             limitOverride: limitOverride,
-            pace: settings.claudeShowsPace ? paceOptions : nil,
+            pace: settings.claudePace.shows ? paceOptions(settings.claudePace) : nil,
             history: claudeHistory
         )
     }
 
     // 目安の行はクレジットの行の手前に差し込む
     var codexLimits: [UsageLimit] {
-        guard settings.codexShowsPace, let codexSpend, let period = codexSpend.period() else {
+        guard settings.codexPace.shows, let codexSpend, let period = codexSpend.period() else {
             return codexRawLimits
         }
         let pace = SpendPace.limits(
@@ -194,21 +194,22 @@ final class UsageModel: ObservableObject {
             used: codexSpend.used,
             limit: codexSpend.limit,
             period: period,
-            options: paceOptions,
+            options: paceOptions(settings.codexPace),
             history: codexHistory,
             format: CodexUsageAPI.formatted
         )
         return codexRawLimits.filter { $0.group != "credits" } + pace + codexRawLimits.filter { $0.group == "credits" }
     }
 
-    private var paceOptions: PaceOptions {
+    private var dayStart: TimeInterval {
+        TimeInterval(settings.dayStartMinutes * 60)
+    }
+
+    private func paceOptions(_ pace: PaceSettings) -> PaceOptions {
         PaceOptions(
-            daily: settings.dailyPaceMode,
-            weekly: settings.weeklyPaceMode,
-            calendar: PaceCalendar(
-                dayStart: TimeInterval(settings.dayStartMinutes * 60),
-                excludesHolidays: settings.paceExcludesHolidays
-            )
+            daily: pace.daily,
+            weekly: pace.weekly,
+            calendar: PaceCalendar(dayStart: dayStart, excludesHolidays: pace.excludesHolidays)
         )
     }
 
